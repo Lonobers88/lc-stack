@@ -151,7 +151,7 @@ cur.execute('SELECT data FROM config WHERE id = 1')
 row = cur.fetchone()
 if row:
     config = json.loads(row[0])
-    config['ui']['WEBUI_NAME'] = 'AI Assistent'
+    config['ui']['WEBUI_NAME'] = 'LocalCompute AI'
     config['ui']['logo'] = ''
     cur.execute('UPDATE config SET data = ? WHERE id = 1', (json.dumps(config),))
     conn.commit()
