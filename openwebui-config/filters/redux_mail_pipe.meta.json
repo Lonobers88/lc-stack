@@ -1,6 +1,6 @@
 {
   "id": "redux_mail_pipe",
-  "name": "LC M365 Mail Pipe",
+  "name": "LC Mail Pipe",
   "type": "filter",
   "meta": {
     "description": "Detecteert mail-intentie en roept de M365 service direct aan.",
