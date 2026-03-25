@@ -44,7 +44,7 @@ services:
       - QDRANT_PREFER_GRPC=false
       - QDRANT_GRPC_PORT=6334
       - QDRANT_TIMEOUT=30
-      - WEBUI_NAME=Redux Assistent
+      - WEBUI_NAME=LocalCompute AI
       - WEBSOCKET_EVENT_CALLER_TIMEOUT=180
       - AIOHTTP_CLIENT_TIMEOUT=120
     depends_on:
