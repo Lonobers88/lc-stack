@@ -55,6 +55,7 @@ services:
       - openwebui:/app/backend/data
       - ./patches/retrieval_utils.py:/app/backend/open_webui/retrieval/utils.py
       - ./patches/middleware.py:/app/backend/open_webui/utils/middleware.py
+      - ./patches/env.py:/app/backend/open_webui/env.py
 
   m365-mail-service:
     build: ./m365-mail-service
