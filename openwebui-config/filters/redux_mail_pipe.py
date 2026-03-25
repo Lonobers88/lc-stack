@@ -299,23 +299,23 @@ class Pipe:
                         "Vraag de gebruiker of ze Microsoft 365 of IMAP mail willen koppelen."
                     )
                 else:
-                    mailbox = boxes[0]
-                    mid = mailbox.get("id")
-                    messages_result = _http(
-                        "GET", f"{service_url}/messages",
-                        params={"mailbox_id": mid, "top": self.valves.max_messages, "unread_only": "true", "folder": "inbox"}
-                    )
-                    if "error" in messages_result:
-                        injection = f"[MAIL FOUT bij ophalen berichten]: {messages_result['error']}"
-                    else:
-                        msgs = messages_result.get("messages", [])
-                        if not msgs:
-                            injection = f"[INBOX VAN {mailbox.get('email')}]: Geen ongelezen berichten. Je inbox is bij!"
+                    # Haal berichten op van ALLE gekoppelde mailboxen
+                    all_mail_data = []
+                    mailbox_errors = []
+                    for mailbox in boxes:
+                        mid = mailbox.get("id")
+                        messages_result = _http(
+                            "GET", f"{service_url}/messages",
+                            params={"mailbox_id": mid, "top": self.valves.max_messages, "unread_only": "true", "folder": "inbox"}
+                        )
+                        if "error" in messages_result:
+                            mailbox_errors.append(f"{mailbox.get('email')}: {messages_result['error']}")
                         else:
-                            mail_data = []
+                            msgs = messages_result.get("messages", [])
                             for m in msgs:
                                 sender = m.get("from", {}).get("emailAddress", {})
-                                mail_data.append({
+                                all_mail_data.append({
+                                    "mailbox": mailbox.get("email"),
                                     "van_naam": sender.get("name", ""),
                                     "van_email": sender.get("address", ""),
                                     "onderwerp": m.get("subject", "(geen onderwerp)"),
@@ -325,18 +325,24 @@ class Pipe:
                                     "preview": m.get("bodyPreview", "")[:400],
                                     "id": m.get("id", "")[:40],
                                 })
-                            mail_json = json.dumps(mail_data, ensure_ascii=False, indent=2)
-                            injection = (
-                                f"[INBOX VAN {mailbox.get('email')} - {len(msgs)} BERICHTEN]\n\n"
-                                f"RUWE MAILDATA:\n{mail_json}\n\n"
-                                f"INSTRUCTIE: Verwerk bovenstaande e-mails VOLLEDIG volgens het mail scoring format "
-                                f"uit je system prompt. Geef per mail:\n"
-                                f"- Urgentiescore 1-10 en relevantiescorenatiescore 1-10 met uitleg\n"
-                                f"- Volledige samenvatting (geen lengte limiet)\n"
-                                f"- Volledig concept-reply bij urgentie >= 6 en actie vereist\n"
-                                f"Sorteer op urgentie, hoogste eerst. Taal: Nederlands."
-                            )
 
+                    mailbox_labels = ", ".join(b.get("email", "") for b in boxes)
+                    if not all_mail_data:
+                        error_info = (" Fouten: " + "; ".join(mailbox_errors)) if mailbox_errors else ""
+                        injection = f"[INBOX VAN {mailbox_labels}]: Geen ongelezen berichten.{error_info} Je inbox is bij!"
+                    else:
+                        mail_json = json.dumps(all_mail_data, ensure_ascii=False, indent=2)
+                        injection = (
+                            f"[INBOX VAN {mailbox_labels} - {len(all_mail_data)} BERICHTEN TOTAAL]\n\n"
+                            f"RUWE MAILDATA:\n{mail_json}\n\n"
+                            f"INSTRUCTIE: Verwerk bovenstaande e-mails VOLLEDIG volgens het mail scoring format "
+                            f"uit je system prompt. Geef per mail:\n"
+                            f"- Mailbox (welk account)\n"
+                            f"- Urgentiescore 1-10 en relevantiescorenatiescore 1-10 met uitleg\n"
+                            f"- Volledige samenvatting (geen lengte limiet)\n"
+                            f"- Volledig concept-reply bij urgentie >= 6 en actie vereist\n"
+                            f"Sorteer op urgentie, hoogste eerst. Taal: Nederlands."
+                        )
         if injection:
             inject_msg = {
                 "role": "system",
