@@ -24,9 +24,13 @@ from .graph import (
 )
 from . import imap_client
 from . import google_workspace_client
+from . import calendar_client
+from . import teams_client
+from . import exact_client
+from . import moneybird_client
 from .db import upsert_imap_mailbox, upsert_google_workspace_mailbox
 
-app = FastAPI(title="Open WebUI M365 Mail Integration", version="0.4.0")
+app = FastAPI(title="LC Mail & Productivity Service", version="1.0.0")
 
 
 class DeviceFlowStartRequest(BaseModel):
@@ -420,3 +424,206 @@ def draft_reply(payload: DraftReplyRequest) -> Dict[str, Any]:
         "draft_suggestions": suggestions,
         "note": "These are plain-text suggestions only; no drafts are created in Microsoft 365.",
     }
+
+
+# ─── CALENDAR ─────────────────────────────────────────────────────────────────
+
+@app.get("/calendar/events")
+def calendar_events(
+    mailbox_id: int = Query(...),
+    days_ahead: int = Query(1, ge=1, le=7),
+    max_results: int = Query(10, ge=1, le=50),
+) -> Dict[str, Any]:
+    """Haal agenda-items op voor een mailbox (M365 of Google Workspace)."""
+    mailbox = get_mailbox(mailbox_id)
+    if not mailbox:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    try:
+        events = calendar_client.fetch_events(mailbox, days_ahead=days_ahead, max_results=max_results)
+        return {"events": events, "mailbox": mailbox.get("email"), "days_ahead": days_ahead}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/calendar/all")
+def calendar_all(
+    days_ahead: int = Query(1, ge=1, le=7),
+    max_results: int = Query(10, ge=1, le=50),
+) -> Dict[str, Any]:
+    """Haal agenda-items op van ALLE gekoppelde mailboxen."""
+    boxes = list_mailboxes()
+    all_events = []
+    errors = []
+    for mailbox in boxes:
+        try:
+            events = calendar_client.fetch_events(
+                get_mailbox(mailbox["id"]), days_ahead=days_ahead, max_results=max_results
+            )
+            for e in events:
+                e["mailbox"] = mailbox.get("email")
+            all_events.extend(events)
+        except Exception as ex:
+            errors.append(f"{mailbox.get('email')}: {str(ex)}")
+
+    # Sorteer op starttijd
+    all_events.sort(key=lambda x: x.get("start", ""))
+    return {"events": all_events, "errors": errors}
+
+
+# ─── TEAMS ────────────────────────────────────────────────────────────────────
+
+@app.get("/teams/messages")
+def teams_messages(
+    mailbox_id: int = Query(...),
+    hours_back: int = Query(24, ge=1, le=168),
+) -> Dict[str, Any]:
+    """Haal recente Teams berichten op voor een mailbox."""
+    mailbox = get_mailbox(mailbox_id)
+    if not mailbox:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    if mailbox.get("provider", "m365") != "m365":
+        raise HTTPException(status_code=400, detail="Teams is alleen beschikbaar voor M365 mailboxen")
+    try:
+        messages = teams_client.fetch_teams_messages(mailbox, hours_back=hours_back)
+        return {"teams_messages": messages, "mailbox": mailbox.get("email"), "hours_back": hours_back}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── EXACT ONLINE ─────────────────────────────────────────────────────────────
+
+class ExactConnectRequest(BaseModel):
+    client_id: str
+    client_secret: str
+    authorization_code: str
+    division: int
+
+
+@app.post("/exact/connect")
+def exact_connect(payload: ExactConnectRequest) -> Dict[str, Any]:
+    """Koppel Exact Online via authorization code (eenmalig door admin)."""
+    settings = get_settings()
+    try:
+        result = exact_client.connect_exact(
+            client_id=payload.client_id,
+            client_secret=payload.client_secret,
+            authorization_code=payload.authorization_code,
+            division=payload.division,
+            db_path=settings.database_path,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/exact/invoices")
+def exact_invoices(max_results: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
+    """Haal openstaande verkoopfacturen op uit Exact Online."""
+    settings = get_settings()
+    try:
+        invoices = exact_client.get_open_invoices(settings.database_path, max_results)
+        return {"invoices": invoices}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/exact/receivables")
+def exact_receivables(max_results: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
+    """Haal openstaande debiteuren op uit Exact Online."""
+    settings = get_settings()
+    try:
+        items = exact_client.get_open_receivables(settings.database_path, max_results)
+        return {"receivables": items}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/exact/transactions")
+def exact_transactions(max_results: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
+    """Haal recente boekingen op uit Exact Online."""
+    settings = get_settings()
+    try:
+        items = exact_client.get_recent_transactions(settings.database_path, max_results)
+        return {"transactions": items}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── MONEYBIRD ────────────────────────────────────────────────────────────────
+
+class MoneybirdConnectRequest(BaseModel):
+    api_token: str
+    administration_id: Optional[str] = None
+
+
+@app.post("/moneybird/connect")
+def moneybird_connect(payload: MoneybirdConnectRequest) -> Dict[str, Any]:
+    """Koppel Moneybird via persoonlijk API token."""
+    import sqlite3
+    try:
+        admin = moneybird_client.test_connection(payload.api_token)
+        administration_id = payload.administration_id or str(admin.get("id"))
+
+        # Sla token op in config tabel
+        db_path = get_settings().database_path
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS moneybird_config (
+                id INTEGER PRIMARY KEY,
+                api_token TEXT,
+                administration_id TEXT
+            )
+        """)
+        conn.execute("DELETE FROM moneybird_config WHERE id = 1")
+        conn.execute(
+            "INSERT INTO moneybird_config VALUES (1, ?, ?)",
+            (payload.api_token, administration_id)
+        )
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "connected",
+            "administration": admin.get("name"),
+            "administration_id": administration_id,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Moneybird koppeling mislukt: {str(e)}")
+
+
+def _get_moneybird_config():
+    import sqlite3
+    db_path = get_settings().database_path
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM moneybird_config WHERE id = 1").fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=400, detail="Moneybird niet gekoppeld. Gebruik POST /moneybird/connect eerst.")
+    return dict(row)
+
+
+@app.get("/moneybird/invoices")
+def moneybird_invoices(max_results: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
+    """Haal onbetaalde facturen op uit Moneybird."""
+    config = _get_moneybird_config()
+    try:
+        invoices = moneybird_client.get_unpaid_invoices(
+            config["api_token"], config["administration_id"], max_results
+        )
+        return {"invoices": invoices}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/moneybird/estimates")
+def moneybird_estimates(max_results: int = Query(5, ge=1, le=20)) -> Dict[str, Any]:
+    """Haal recente offertes op uit Moneybird."""
+    config = _get_moneybird_config()
+    try:
+        estimates = moneybird_client.get_recent_estimates(
+            config["api_token"], config["administration_id"], max_results
+        )
+        return {"estimates": estimates}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
