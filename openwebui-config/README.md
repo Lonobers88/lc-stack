@@ -8,9 +8,7 @@ Automatisch gegenereerd door `scripts/export_openwebui_config.py`.
 - `nomic-embed-text:latest`
 - `qwen3.5:9b`
 - `qwen3:14b`
-- `redux-hr-assistent`
 - `redux-medewerker`
-- `redux-prijszoeker`
 
 ## Structuur
 - `models/` — Model definities (system prompt, tools, knowledge)
