@@ -181,6 +181,7 @@ def messages(
     mailbox_id: int = Query(...),
     top: int = Query(10, ge=1, le=50),
     folder: Optional[str] = Query(None),
+    unread_only: bool = Query(False),
 ) -> Dict[str, Any]:
     mailbox = get_mailbox(mailbox_id)
     if not mailbox:
@@ -193,6 +194,9 @@ def messages(
         "$orderby": "receivedDateTime DESC",
         "$select": select_fields,
     }
+
+    if unread_only:
+        params["$filter"] = "isRead eq false"
 
     if folder:
         path = f"/me/mailFolders/{folder}/messages"
