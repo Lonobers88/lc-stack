@@ -20,7 +20,7 @@ INTENT_KOPPEL_IMAP = ["koppel imap", "imap koppelen", "koppel gmail", "gmail kop
 INTENT_KOPPEL_ANY = ["koppel", "verbind", "connect", "mailbox toevoegen", "account koppelen", "mail koppelen"]
 INTENT_IMAP_DATA = ["imap_host:", "host:", "wachtwoord:", "password:", "gebruikersnaam:", "username:"]
 INTENT_INBOX = [
-    "inbox", "mailbox", "mijn mail", "mn mail", "nieuwe mail", "mails",
+    "inbox", "mailbox", "mail", "mijn mail", "mn mail", "nieuwe mail", "mails",
     "check mail", "check mijn", "check mn", "mail checken", "mail nakijken", "mail controleren",
     "mail lezen", "e-mails", "e-mail", "berichten bekijken", "mail tonen", "emails tonen",
     "mailbox zien", "mails zien", "toon mijn", "laat mijn", "bekijk mijn", "open mijn mail",
