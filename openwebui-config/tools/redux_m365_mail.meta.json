@@ -1,6 +1,6 @@
 {
   "id": "redux_m365_mail",
-  "name": "LC M365 Mail",
+  "name": "LC Mail",
   "meta": {
     "description": "Koppel Microsoft 365 mailboxen via Device Code Flow en haal mailbox-overzichten, samenvattingen, belangrijkheid en concept-antwoorden op.",
     "manifest": {
