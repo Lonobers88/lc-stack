@@ -1,9 +1,9 @@
 {
   "id": "redux-medewerker",
-  "name": "Redux Medewerker Assistent",
+  "name": "AI Assistent",
   "base_model_id": "qwen3:14b",
   "meta": {
-    "description": "Alles-in-één assistent voor Redux Gaming medewerkers: producten, HR, mail.",
+    "description": "Uw persoonlijke AI-assistent voor HR, producten en e-mail.",
     "capabilities": {
       "file_context": false,
       "vision": false,
