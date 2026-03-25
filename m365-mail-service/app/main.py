@@ -22,12 +22,24 @@ from .graph import (
     init_device_flow,
     acquire_token_by_device_flow,
 )
+from . import imap_client
+from .db import upsert_imap_mailbox
 
 app = FastAPI(title="Open WebUI M365 Mail Integration", version="0.4.0")
 
 
 class DeviceFlowStartRequest(BaseModel):
     email: Optional[str] = None
+
+
+class ImapConnectRequest(BaseModel):
+    email: str
+    display_name: Optional[str] = None
+    imap_host: str
+    imap_port: int = 993
+    imap_ssl: bool = True
+    username: str
+    password: str
 
 
 class SummarizeRequest(BaseModel):
@@ -176,6 +188,41 @@ def mailboxes() -> Dict[str, Any]:
     return {"mailboxes": list_mailboxes()}
 
 
+@app.post("/imap/connect")
+def imap_connect(payload: ImapConnectRequest) -> Dict[str, Any]:
+    """Koppel een IMAP mailbox. Test verbinding voor opslaan."""
+    imap_config = {
+        "imap_host": payload.imap_host,
+        "imap_port": payload.imap_port,
+        "imap_ssl": payload.imap_ssl,
+        "username": payload.username,
+        "password": payload.password,
+    }
+    try:
+        imap_client.test_connection(imap_config)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"IMAP verbinding mislukt: {str(e)}")
+
+    mailbox_id = upsert_imap_mailbox(
+        email=payload.email,
+        display_name=payload.display_name or payload.email,
+        imap_host=payload.imap_host,
+        imap_port=payload.imap_port,
+        imap_ssl=payload.imap_ssl,
+        username=payload.username,
+        password=payload.password,
+    )
+    return {
+        "status": "connected",
+        "mailbox": {
+            "id": mailbox_id,
+            "email": payload.email,
+            "display_name": payload.display_name or payload.email,
+            "provider": "imap",
+        },
+    }
+
+
 @app.get("/messages")
 def messages(
     mailbox_id: int = Query(...),
@@ -186,23 +233,32 @@ def messages(
     mailbox = get_mailbox(mailbox_id)
     if not mailbox:
         raise HTTPException(status_code=404, detail="Mailbox not found")
-    access_token = get_access_token(mailbox)
 
+    provider = mailbox.get("provider", "m365")
+
+    if provider == "imap":
+        msgs = imap_client.fetch_messages(
+            mailbox=mailbox,
+            top=top,
+            folder=folder or "inbox",
+            unread_only=unread_only,
+        )
+        return {"messages": msgs}
+
+    # M365 flow (ongewijzigd)
+    access_token = get_access_token(mailbox)
     select_fields = "id,subject,from,receivedDateTime,bodyPreview,importance,isRead,hasAttachments"
     params = {
         "$top": top,
         "$orderby": "receivedDateTime DESC",
         "$select": select_fields,
     }
-
     if unread_only:
         params["$filter"] = "isRead eq false"
-
     if folder:
         path = f"/me/mailFolders/{folder}/messages"
     else:
         path = "/me/messages"
-
     data = graph_get(access_token, path, params=params)
     return {"messages": data.get("value", [])}
 

@@ -29,7 +29,9 @@ def init_db() -> None:
             email TEXT UNIQUE NOT NULL,
             display_name TEXT,
             tenant_id TEXT,
-            token_json TEXT NOT NULL,
+            token_json TEXT NOT NULL DEFAULT '{}',
+            provider TEXT NOT NULL DEFAULT 'm365',
+            imap_config TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
@@ -43,6 +45,12 @@ def init_db() -> None:
         )
         """
     )
+    # Migratie: voeg kolommen toe aan bestaande tabel indien niet aanwezig
+    existing = [row[1] for row in cur.execute("PRAGMA table_info(mailboxes)").fetchall()]
+    if "provider" not in existing:
+        cur.execute("ALTER TABLE mailboxes ADD COLUMN provider TEXT NOT NULL DEFAULT 'm365'")
+    if "imap_config" not in existing:
+        cur.execute("ALTER TABLE mailboxes ADD COLUMN imap_config TEXT")
     conn.commit()
     conn.close()
 
@@ -108,17 +116,6 @@ def upsert_mailbox(
     return int(mailbox_id)
 
 
-def list_mailboxes() -> List[Dict[str, Any]]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, email, display_name, tenant_id, created_at, updated_at FROM mailboxes ORDER BY id DESC"
-    )
-    rows = [dict(row) for row in cur.fetchall()]
-    conn.close()
-    return rows
-
-
 def get_mailbox(mailbox_id: int) -> Optional[Dict[str, Any]]:
     conn = get_conn()
     cur = conn.cursor()
@@ -143,3 +140,59 @@ def update_mailbox_token(mailbox_id: int, token: Dict[str, Any]) -> None:
 
 def load_mailbox_token(mailbox: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(mailbox["token_json"])
+
+
+def upsert_imap_mailbox(
+    email: str,
+    display_name: Optional[str],
+    imap_host: str,
+    imap_port: int,
+    imap_ssl: bool,
+    username: str,
+    password: str,
+) -> int:
+    conn = get_conn()
+    cur = conn.cursor()
+    now = _utc_now()
+    imap_config = json.dumps({
+        "imap_host": imap_host,
+        "imap_port": imap_port,
+        "imap_ssl": imap_ssl,
+        "username": username,
+        "password": password,
+    })
+    cur.execute("SELECT id FROM mailboxes WHERE email = ?", (email,))
+    row = cur.fetchone()
+    if row:
+        mailbox_id = row["id"]
+        cur.execute(
+            """
+            UPDATE mailboxes
+            SET display_name = ?, provider = 'imap', imap_config = ?, token_json = '{}', updated_at = ?
+            WHERE id = ?
+            """,
+            (display_name, imap_config, now, mailbox_id),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO mailboxes (email, display_name, tenant_id, token_json, provider, imap_config, created_at, updated_at)
+            VALUES (?, ?, NULL, '{}', 'imap', ?, ?, ?)
+            """,
+            (email, display_name, imap_config, now, now),
+        )
+        mailbox_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return int(mailbox_id)
+
+
+def list_mailboxes() -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, email, display_name, tenant_id, provider, created_at, updated_at FROM mailboxes ORDER BY id DESC"
+    )
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return rows
