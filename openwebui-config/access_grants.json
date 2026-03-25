@@ -1,13 +1,6 @@
 [
   {
     "resource_type": "model",
-    "resource_id": "qwen3:14b",
-    "principal_type": "user",
-    "principal_id": "*",
-    "permission": "read"
-  },
-  {
-    "resource_type": "model",
     "resource_id": "redux-medewerker",
     "principal_type": "user",
     "principal_id": "*",
