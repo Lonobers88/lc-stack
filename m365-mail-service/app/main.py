@@ -23,9 +23,7 @@ from .graph import (
     acquire_token_by_device_flow,
 )
 
-app = FastAPI(title="Open WebUI M365 Mail Integration", version="0.3.0")
-
-pending_device_flows: Dict[str, Dict[str, Any]] = {}
+app = FastAPI(title="Open WebUI M365 Mail Integration", version="0.4.0")
 
 
 class DeviceFlowStartRequest(BaseModel):
@@ -46,6 +44,55 @@ class DraftReplyRequest(BaseModel):
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    # Maak pending_flows tabel aan als die nog niet bestaat
+    import sqlite3, os
+    db_path = get_settings().database_path
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_flows (
+            device_code TEXT PRIMARY KEY,
+            email TEXT,
+            started_at REAL NOT NULL,
+            expires_at REAL NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def _save_pending_flow(device_code: str, email: Optional[str], expires_in: int) -> None:
+    import sqlite3
+    db_path = get_settings().database_path
+    now = time.time()
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT OR REPLACE INTO pending_flows (device_code, email, started_at, expires_at) VALUES (?,?,?,?)",
+        (device_code, email, now, now + expires_in)
+    )
+    conn.commit()
+    conn.close()
+
+
+def _get_latest_pending_flow() -> Optional[str]:
+    """Geeft de meest recente niet-verlopen device_code terug."""
+    import sqlite3
+    db_path = get_settings().database_path
+    conn = sqlite3.connect(db_path)
+    row = conn.execute(
+        "SELECT device_code FROM pending_flows WHERE expires_at > ? ORDER BY started_at DESC LIMIT 1",
+        (time.time(),)
+    ).fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def _delete_pending_flow(device_code: str) -> None:
+    import sqlite3
+    db_path = get_settings().database_path
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM pending_flows WHERE device_code = ?", (device_code,))
+    conn.commit()
+    conn.close()
 
 
 @app.get("/health")
@@ -58,18 +105,17 @@ def auth_device_start(payload: DeviceFlowStartRequest) -> Dict[str, Any]:
     """Start device code flow for OAuth login."""
     try:
         flow = init_device_flow()
-        
-        pending_device_flows[flow["device_code"]] = {
-            "email": payload.email,
-            "started_at": time.time(),
-        }
-        
+        expires_in = flow.get("expires_in", 900)
+
+        # Persisteer de flow in SQLite
+        _save_pending_flow(flow["device_code"], payload.email, expires_in)
+
         return {
             "status": "pending",
             "user_code": flow["user_code"],
             "verification_uri": flow["verification_uri"],
             "message": flow.get("message", "To sign in, open the page and enter the code."),
-            "expires_in": flow.get("expires_in", 900),
+            "expires_in": expires_in,
             "device_code": flow["device_code"],
         }
     except Exception as e:
@@ -77,30 +123,33 @@ def auth_device_start(payload: DeviceFlowStartRequest) -> Dict[str, Any]:
 
 
 @app.get("/auth/device/poll")
-def auth_device_poll(device_code: str = Query(...)) -> Dict[str, Any]:
-    """Poll for completion of device code flow."""
-    if device_code not in pending_device_flows:
-        raise HTTPException(status_code=404, detail="Device code not found or expired")
-    
+def auth_device_poll(device_code: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """Poll for completion of device code flow. Zonder device_code: gebruik de laatste bekende."""
+    # Als geen device_code meegegeven, gebruik de meest recente
+    if not device_code:
+        device_code = _get_latest_pending_flow()
+        if not device_code:
+            return {"status": "no_pending", "message": "Geen actieve koppeling gevonden. Start eerst een nieuwe koppeling."}
+
     try:
         result = acquire_token_by_device_flow(device_code)
-        
+
         if result is None:
             return {"status": "pending", "message": "Waiting for user to complete login..."}
-        
+
         access_token = result["access_token"]
         profile = graph_get(access_token, "/me", params={"$select": "id,displayName,mail,userPrincipalName"})
         email = profile.get("mail") or profile.get("userPrincipalName")
-        
-        pending_info = pending_device_flows.pop(device_code)
-        
+
+        _delete_pending_flow(device_code)
+
         mailbox_id = upsert_mailbox(
             email=email,
             display_name=profile.get("displayName"),
             tenant_id=get_settings().tenant_id,
             token=result,
         )
-        
+
         return {
             "status": "connected",
             "mailbox": {
@@ -113,6 +162,13 @@ def auth_device_poll(device_code: str = Query(...)) -> Dict[str, Any]:
         raise
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@app.get("/auth/device/latest")
+def auth_device_latest() -> Dict[str, Any]:
+    """Geeft de meest recente actieve device_code terug (voor debugging)."""
+    code = _get_latest_pending_flow()
+    return {"device_code": code, "has_pending": code is not None}
 
 
 @app.get("/mailboxes")

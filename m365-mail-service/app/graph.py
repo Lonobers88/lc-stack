@@ -46,7 +46,8 @@ def get_access_token(mailbox: Dict[str, Any]) -> str:
     refresh_token = token.get("refresh_token")
     if not refresh_token:
         raise RuntimeError("Missing refresh_token for mailbox")
-    new_token = app.acquire_token_by_refresh_token(refresh_token, scopes=settings.scopes)
+    clean_scopes = [s for s in settings.scopes if s not in ["offline_access", "openid", "profile"]]
+    new_token = app.acquire_token_by_refresh_token(refresh_token, scopes=clean_scopes)
     if "access_token" not in new_token:
         raise RuntimeError(f"Failed to refresh token: {json.dumps(new_token)}")
     update_mailbox_token(mailbox["id"], new_token)
