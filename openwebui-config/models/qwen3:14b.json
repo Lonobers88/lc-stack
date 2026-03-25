@@ -1,0 +1,74 @@
+{
+  "id": "qwen3:14b",
+  "name": "qwen3:14b",
+  "base_model_id": null,
+  "meta": {
+    "description": null,
+    "capabilities": {
+      "file_context": true,
+      "vision": true,
+      "file_upload": true,
+      "web_search": true,
+      "image_generation": true,
+      "code_interpreter": true,
+      "citations": true,
+      "status_updates": true,
+      "builtin_tools": true
+    },
+    "suggestion_prompts": [
+      {
+        "content": "Hoeveel verlofuren heb ik per jaar volgens de CAO ETD?",
+        "title": [
+          "📋 Verlof & CAO",
+          "Hoeveel verlofuren heb ik per jaar?"
+        ]
+      }
+    ],
+    "tags": [],
+    "builtinTools": {
+      "time": true,
+      "memory": true,
+      "chats": true,
+      "notes": true,
+      "knowledge": true,
+      "channels": true,
+      "web_search": true,
+      "image_generation": true,
+      "code_interpreter": true
+    },
+    "toolIds": [
+      "redux_pc_prijszoeker"
+    ],
+    "knowledge": [
+      {
+        "id": "c8e64e2e-cff0-4f29-bc5f-d04fe88c7fb7",
+        "user_id": "19d86eca-0126-4627-a6fd-c451ff3bd101",
+        "name": "Personeel",
+        "description": "CAO ETD 2024-2025 en Personeelshandboek Redux Gaming - HR documenten, arbeidsvoorwaarden, verlof, salaris",
+        "meta": null,
+        "access_grants": [
+          {
+            "id": "845ba438-6bc5-4a96-aae7-a50b43c477c9",
+            "resource_type": "knowledge",
+            "resource_id": "c8e64e2e-cff0-4f29-bc5f-d04fe88c7fb7",
+            "principal_type": "user",
+            "principal_id": "*",
+            "permission": "read",
+            "created_at": 1772834391
+          }
+        ],
+        "created_at": 1772834391,
+        "updated_at": 1772834391,
+        "user": {
+          "id": "19d86eca-0126-4627-a6fd-c451ff3bd101",
+          "name": "Elon",
+          "role": "admin",
+          "email": "elonclawd@gmail.com"
+        },
+        "write_access": true,
+        "type": "collection"
+      }
+    ]
+  },
+  "is_active": true
+}

@@ -1,0 +1,12 @@
+{
+  "id": "redux_pc_prijszoeker",
+  "name": "Redux PC Prijszoeker",
+  "meta": {
+    "description": "Zoekt prijzen van alle Redux Gaming producten: gaming PCs, accessoires, controllers, muizen, toetsenborden, headsets, monitoren en abonnementen",
+    "manifest": {
+      "title": "Redux PC Prijszoeker",
+      "author": "LocalCompute",
+      "description": "Zoekt exacte PC prijzen op basis van specs of SKU"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "bge-m3:latest",
+  "name": "bge-m3:latest",
+  "base_model_id": null,
+  "meta": {
+    "description": null,
+    "capabilities": {
+      "file_context": true,
+      "vision": true,
+      "file_upload": true,
+      "web_search": true,
+      "image_generation": true,
+      "code_interpreter": true,
+      "citations": true,
+      "status_updates": true,
+      "builtin_tools": true
+    }
+  },
+  "is_active": true
+}

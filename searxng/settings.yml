@@ -1,0 +1,14 @@
+use_default_settings: true
+server:
+  secret_key: "localcompute-searxng-secret"
+  bind_address: "0.0.0.0"
+  limiter: false
+  image_proxy: true
+  public_instance: false
+  forwarded_allow_ips: "*"
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json

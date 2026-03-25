@@ -1,0 +1,9 @@
+services:
+  m365-mail-service:
+    build: .
+    ports:
+      - 8010:8000
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data

@@ -1,0 +1,14 @@
+{
+  "id": "redux_m365_mail",
+  "name": "Redux M365 Mail",
+  "meta": {
+    "description": "Koppel Microsoft 365 mailboxen via Device Code Flow en haal mailbox-overzichten, samenvattingen, belangrijkheid en concept-antwoorden op.",
+    "manifest": {
+      "title": "Redux M365 Mail",
+      "author": "Redux",
+      "version": "0.2.0",
+      "description": "Koppel Microsoft 365 mailboxen via Device Code Flow en haal mailbox-overzichten, samenvattingen, belangrijkheid en concept-antwoorden op.",
+      "requirements": "requests"
+    }
+  }
+}

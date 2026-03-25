@@ -1,0 +1,34 @@
+{
+  "id": "redux-hr-assistent",
+  "name": "Redux HR Assistent",
+  "base_model_id": "qwen3:14b",
+  "meta": {
+    "description": "HR assistent voor Redux Gaming medewerkers. Beantwoordt vragen over CAO, verlof en arbeidsvoorwaarden.",
+    "capabilities": {
+      "file_context": true,
+      "vision": false,
+      "file_upload": true,
+      "web_search": true,
+      "image_generation": true,
+      "code_interpreter": true,
+      "citations": true,
+      "status_updates": true,
+      "builtin_tools": true,
+      "usage": false
+    },
+    "knowledge": [
+      {
+        "type": "collection",
+        "id": "c8e64e2e-cff0-4f29-bc5f-d04fe88c7fb7",
+        "name": "Personeel"
+      }
+    ],
+    "toolIds": [],
+    "tags": [
+      {
+        "name": "HR"
+      }
+    ]
+  },
+  "is_active": true
+}

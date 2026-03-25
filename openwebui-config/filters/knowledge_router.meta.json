@@ -1,0 +1,16 @@
+{
+  "id": "knowledge_router",
+  "name": "Knowledge Router",
+  "type": "filter",
+  "meta": {
+    "description": "v3.0 - geen OWUI HTTP calls, keyword routing + vaste collection IDs",
+    "manifest": {
+      "title": "Knowledge Router",
+      "author": "LocalCompute",
+      "version": "3.3.5",
+      "description": "Keyword-based routing naar de juiste Knowledge collection. Geen HTTP-calls naar OWUI (voorkomt deadlock). Collection IDs worden als valve geconfigureerd.",
+      "type": "filter",
+      "required_open_webui_version": "0.4.0"
+    }
+  }
+}

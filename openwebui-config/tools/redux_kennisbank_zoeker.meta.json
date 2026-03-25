@@ -1,0 +1,8 @@
+{
+  "id": "redux_kennisbank_zoeker",
+  "name": "Redux Kennisbank Zoeker",
+  "meta": {
+    "description": "Zoekt live in Open WebUI Knowledge Bases. Generiek — werkt voor elke klant zonder aanpassing.",
+    "manifest": {}
+  }
+}

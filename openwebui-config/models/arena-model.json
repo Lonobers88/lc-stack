@@ -1,0 +1,21 @@
+{
+  "id": "arena-model",
+  "name": null,
+  "base_model_id": null,
+  "meta": {
+    "description": "Submit your questions to anonymous AI chatbots and vote on the best response.",
+    "model_ids": null,
+    "capabilities": {
+      "file_context": true,
+      "vision": true,
+      "file_upload": true,
+      "web_search": true,
+      "image_generation": true,
+      "code_interpreter": true,
+      "citations": true,
+      "status_updates": true,
+      "builtin_tools": true
+    }
+  },
+  "is_active": true
+}
