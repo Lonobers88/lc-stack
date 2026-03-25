@@ -1,6 +1,6 @@
 {
   "id": "redux_rag_grounding",
-  "name": "Redux RAG Grounding Filter",
+  "name": "LC RAG Grounding",
   "type": "filter",
   "meta": {
     "description": "Redux RAG Grounding Filter v4.0",
@@ -11,6 +11,7 @@
       "description": "Deterministisch RAG via Qdrant+Ollama",
       "type": "filter",
       "required_open_webui_version": "0.3.0"
-    }
+    },
+    "name": "LC RAG Grounding"
   }
 }
