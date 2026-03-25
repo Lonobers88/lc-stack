@@ -142,6 +142,42 @@ def load_mailbox_token(mailbox: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(mailbox["token_json"])
 
 
+def upsert_google_workspace_mailbox(
+    email: str,
+    display_name: Optional[str],
+    service_account_json: str,
+) -> int:
+    """Sla een Google Workspace mailbox op met service account credentials."""
+    conn = get_conn()
+    cur = conn.cursor()
+    now = _utc_now()
+    # imap_config hergebruiken voor google service account JSON
+    cur.execute("SELECT id FROM mailboxes WHERE email = ?", (email,))
+    row = cur.fetchone()
+    if row:
+        mailbox_id = row["id"]
+        cur.execute(
+            """
+            UPDATE mailboxes
+            SET display_name = ?, provider = 'google', imap_config = ?, token_json = '{}', updated_at = ?
+            WHERE id = ?
+            """,
+            (display_name, service_account_json, now, mailbox_id),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO mailboxes (email, display_name, tenant_id, token_json, provider, imap_config, created_at, updated_at)
+            VALUES (?, ?, NULL, '{}', 'google', ?, ?, ?)
+            """,
+            (email, display_name, service_account_json, now, now),
+        )
+        mailbox_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return int(mailbox_id)
+
+
 def upsert_imap_mailbox(
     email: str,
     display_name: Optional[str],

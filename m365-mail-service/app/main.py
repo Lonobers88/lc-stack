@@ -23,13 +23,20 @@ from .graph import (
     acquire_token_by_device_flow,
 )
 from . import imap_client
-from .db import upsert_imap_mailbox
+from . import google_workspace_client
+from .db import upsert_imap_mailbox, upsert_google_workspace_mailbox
 
 app = FastAPI(title="Open WebUI M365 Mail Integration", version="0.4.0")
 
 
 class DeviceFlowStartRequest(BaseModel):
     email: Optional[str] = None
+
+
+class GoogleWorkspaceConnectRequest(BaseModel):
+    email: str  # Het e-mailadres van de gebruiker (moet in het Google Workspace domein zitten)
+    display_name: Optional[str] = None
+    service_account_json: str  # De volledige JSON key van het service account
 
 
 class ImapConnectRequest(BaseModel):
@@ -188,6 +195,40 @@ def mailboxes() -> Dict[str, Any]:
     return {"mailboxes": list_mailboxes()}
 
 
+@app.post("/google/connect")
+def google_connect(payload: GoogleWorkspaceConnectRequest) -> Dict[str, Any]:
+    """
+    Koppel een Google Workspace mailbox via service account impersonation.
+    Vereist dat de admin eenmalig domain-wide delegation heeft ingeschakeld.
+    """
+    try:
+        verified_email = google_workspace_client.test_connection(
+            service_account_json=payload.service_account_json,
+            user_email=payload.email,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Google Workspace verbinding mislukt: {str(e)}. "
+                   f"Controleer of domain-wide delegation is ingeschakeld en de Gmail API actief is."
+        )
+
+    mailbox_id = upsert_google_workspace_mailbox(
+        email=payload.email,
+        display_name=payload.display_name or verified_email,
+        service_account_json=payload.service_account_json,
+    )
+    return {
+        "status": "connected",
+        "mailbox": {
+            "id": mailbox_id,
+            "email": verified_email,
+            "display_name": payload.display_name or verified_email,
+            "provider": "google",
+        },
+    }
+
+
 @app.post("/imap/connect")
 def imap_connect(payload: ImapConnectRequest) -> Dict[str, Any]:
     """Koppel een IMAP mailbox. Test verbinding voor opslaan."""
@@ -239,6 +280,19 @@ def messages(
     if provider == "imap":
         msgs = imap_client.fetch_messages(
             mailbox=mailbox,
+            top=top,
+            folder=folder or "inbox",
+            unread_only=unread_only,
+        )
+        return {"messages": msgs}
+
+    if provider == "google":
+        service_account_json = mailbox.get("imap_config")  # hergebruikt imap_config kolom
+        if not service_account_json:
+            raise HTTPException(status_code=500, detail="Google service account niet geconfigureerd")
+        msgs = google_workspace_client.fetch_messages(
+            service_account_json=service_account_json,
+            user_email=mailbox["email"],
             top=top,
             folder=folder or "inbox",
             unread_only=unread_only,
