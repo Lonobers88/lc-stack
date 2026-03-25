@@ -16,7 +16,19 @@ from pydantic import BaseModel, Field
 MAIL_SERVICE_URL = "http://m365-mail-service:8000"
 
 INTENT_KOPPEL = ["koppel", "verbind", "connect", "login microsoft", "mailbox toevoegen", "account koppelen", "m365 koppelen", "mail koppelen"]
-INTENT_INBOX = ["inbox", "mail lezen", "e-mails", "berichten bekijken", "mijn mail", "nieuwe mail", "ongelezen", "mailbox", "mailbox zien", "mails zien", "toon mijn", "laat mijn", "bekijk mijn", "open mijn mail", "mail tonen", "emails tonen"]
+INTENT_INBOX = [
+    # Directe inbox-verzoeken
+    "inbox", "mailbox", "mijn mail", "mn mail", "nieuwe mail", "mails",
+    # Check-varianten
+    "check mail", "check mijn", "check mn", "mail checken", "mail nakijken", "mail controleren",
+    # Lees/bekijk-varianten
+    "mail lezen", "e-mails", "e-mail", "berichten bekijken", "mail tonen", "emails tonen",
+    "mailbox zien", "mails zien", "toon mijn", "laat mijn", "bekijk mijn", "open mijn mail",
+    # Vraagvarianten
+    "heb ik mail", "zijn er mails", "nieuwe berichten", "ongelezen", "ongelezen berichten",
+    # Overig
+    "post", "berichtenbox",
+]
 INTENT_POLL = ["klaar", "ingelogd", "gedaan", "afgerond", "ik heb de code ingevoerd", "gelukt", "verbonden"]
 
 
