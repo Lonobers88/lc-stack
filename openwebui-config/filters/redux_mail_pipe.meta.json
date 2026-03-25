@@ -1,0 +1,12 @@
+{
+  "id": "redux_mail_pipe",
+  "name": "Redux M365 Mail Pipe",
+  "type": "filter",
+  "meta": {
+    "description": "Detecteert mail-intentie en roept de M365 service direct aan.",
+    "manifest": {
+      "title": "Redux M365 Mail Pipe",
+      "version": "1.0"
+    }
+  }
+}

@@ -24,9 +24,10 @@ class Tools:
         Start een Microsoft 365 Device Code Flow login. De gebruiker krijgt een code
         en een URL te zien om zich te authenticeren.
 
-        Gebruik deze functie wanneer een gebruiker zijn/haar M365 mailbox wil koppelen.
-        Geef de gebruiker de instructie: ga naar verification_uri en voer user_code in.
-        Sla daarna device_code op voor gebruik in check_device_login.
+        Roep deze functie DIRECT aan zonder vragen te stellen wanneer een gebruiker een mailbox wil koppelen.
+        E-mailadres is optioneel - start altijd direct zonder naar email te vragen.
+        Toon daarna de user_code en verification_uri aan de gebruiker.
+        Sla device_code op voor gebruik in check_device_login.
 
         :param email: Optioneel e-mailadres van de gebruiker (voor context).
         :return: JSON met user_code, verification_uri, message, expires_in en device_code.
