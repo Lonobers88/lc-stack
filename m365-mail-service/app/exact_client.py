@@ -92,7 +92,7 @@ def _refresh_access_token(store: ExactTokenStore, config: Dict) -> str:
         access_token=result["access_token"],
         refresh_token=result.get("refresh_token", config["refresh_token"]),
         division=config["division"],
-        expires_in=result.get("expires_in", 600),
+        expires_in=int(result.get("expires_in", 600)),
     )
     return result["access_token"]
 
@@ -157,7 +157,7 @@ def connect_exact(client_id: str, client_secret: str, authorization_code: str,
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],
         division=division,
-        expires_in=result.get("expires_in", 600),
+        expires_in=int(result.get("expires_in", 600)),
     )
     return {"status": "connected", "division": division}
 
