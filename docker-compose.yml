@@ -99,7 +99,17 @@ services:
     volumes:
       - ./searxng:/etc/searxng
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=eyJhIjoiMDAzNmIxMDliMzljZjUxYjY1ZTQxYmE5NDI3ZmQ0Y2QiLCJ0IjoiNzhhZTEzYjktMzg3Yy00NDY1LWIxMGUtMzQ3ZjM3YWNhM2Y0IiwicyI6InFLeFlpVk5EbCtmTGRDdlNobkpKVWZMZUd6SXVXY25OSkY3QTd3TDliNlZmMjlVUUc4Z2N6eXFBTituMmp5WlVueUhUNExGVmYzQlpPZXh3bTljY09nPT0ifQ==
+    network_mode: host
+
 volumes:
   ollama:
   qdrant:
   openwebui:
+
