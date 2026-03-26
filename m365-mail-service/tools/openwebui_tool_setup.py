@@ -87,7 +87,7 @@ class Tools:
         import urllib.parse
         params = urllib.parse.urlencode({
             "client_id": client_id,
-            "redirect_uri": "http://localhost/callback",
+            "redirect_uri": "https://localhost/callback",
             "response_type": "code",
             "force_login": "0",
         })
@@ -99,7 +99,7 @@ class Tools:
             "instructie": (
                 f"**Open deze URL in uw browser:**\n{auth_url}\n\n"
                 "Log in met uw Exact Online admin-account en geef toestemming. "
-                "Daarna probeert de browser 'http://localhost/callback?code=XXXX' te laden — "
+                "Daarna probeert de browser 'https://localhost/callback?code=XXXX' te laden — "
                 "u ziet een foutpagina, dat is normaal. "
                 "**Kopieer de volledige URL uit de adresbalk** en plak die hier terug."
             )
@@ -122,7 +122,7 @@ class Tools:
 
         :param client_id: De Client ID van de Exact Online app.
         :param client_secret: De Client Secret van de Exact Online app.
-        :param callback_url: De volledige callback URL uit de browser (bijv. http://localhost/callback?code=XXXX).
+        :param callback_url: De volledige callback URL uit de browser (bijv. https://localhost/callback?code=XXXX).
         :param division: Het Exact Online divisienummer (staat in de URL als u ingelogd bent in Exact).
         :return: Status van de koppeling.
         """
@@ -141,7 +141,7 @@ class Tools:
         if not code:
             return {
                 "status": "fout",
-                "bericht": "Geen code gevonden in de opgegeven URL. Plak de volledige URL uit de adresbalk (bijv. http://localhost/callback?code=XXXX)."
+                "bericht": "Geen code gevonden in de opgegeven URL. Plak de volledige URL uit de adresbalk (bijv. https://localhost/callback?code=XXXX)."
             }
 
         try:

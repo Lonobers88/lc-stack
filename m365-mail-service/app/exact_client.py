@@ -140,7 +140,7 @@ def connect_exact(client_id: str, client_secret: str, authorization_code: str,
         "code": authorization_code,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": "http://localhost/callback",
+        "redirect_uri": "https://localhost/callback",
     }).encode()
 
     req = urllib.request.Request(EXACT_TOKEN_URL, data=data, method="POST")
