@@ -1,4 +1,5 @@
 import secrets
+import sqlite3
 import time
 from typing import Any, Dict, List, Optional
 
@@ -627,3 +628,96 @@ def moneybird_estimates(max_results: int = Query(5, ge=1, le=20)) -> Dict[str, A
         return {"estimates": estimates}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+# ─── EXACT ONLINE SETUP FLOW ─────────────────────────────────────────────────
+
+class ExactSetupStartRequest(BaseModel):
+    client_id: str
+    client_secret: str
+    division: int
+
+
+class ExactCallbackReceiveRequest(BaseModel):
+    code: str
+    state: Optional[str] = None
+
+
+@app.post("/exact/setup/start")
+def exact_setup_start(payload: ExactSetupStartRequest) -> Dict[str, Any]:
+    """Sla Exact setup-config op en geef de OAuth URL terug."""
+    import urllib.parse, time
+    settings = get_settings()
+    conn = sqlite3.connect(settings.database_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS exact_pending_setup (
+            id INTEGER PRIMARY KEY,
+            client_id TEXT,
+            client_secret TEXT,
+            division INTEGER,
+            created_at REAL
+        )
+    """)
+    conn.execute("DELETE FROM exact_pending_setup")
+    conn.execute(
+        "INSERT INTO exact_pending_setup VALUES (1, ?, ?, ?, ?)",
+        (payload.client_id, payload.client_secret, payload.division, time.time())
+    )
+    conn.commit()
+    conn.close()
+
+    redirect_uri = "https://callback.localcompute.nl/"
+    params = urllib.parse.urlencode({
+        "client_id": payload.client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "force_login": "0",
+    })
+    auth_url = f"https://start.exactonline.nl/api/oauth2/auth?{params}"
+    return {
+        "status": "pending",
+        "auth_url": auth_url,
+        "instructie": f"Open deze URL in uw browser: {auth_url}"
+    }
+
+
+@app.post("/exact/callback/receive")
+def exact_callback_receive(payload: ExactCallbackReceiveRequest) -> Dict[str, Any]:
+    """Ontvangt de authorization code van de PHP relay op callback.localcompute.nl."""
+    settings = get_settings()
+    conn = sqlite3.connect(settings.database_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM exact_pending_setup ORDER BY created_at DESC LIMIT 1").fetchone()
+    conn.close()
+
+    if not row:
+        raise HTTPException(status_code=400, detail="Geen actieve Exact setup. Start opnieuw via POST /exact/setup/start.")
+
+    config = dict(row)
+    try:
+        exact_client.connect_exact(
+            client_id=config["client_id"],
+            client_secret=config["client_secret"],
+            authorization_code=payload.code,
+            division=config["division"],
+            db_path=settings.database_path,
+        )
+        return {"status": "connected", "message": "Exact Online succesvol gekoppeld!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/exact/callback")
+def exact_callback_get(
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+) -> Any:
+    """OAuth GET callback — directe browser redirect."""
+    if error:
+        raise HTTPException(status_code=400, detail=f"Exact OAuth fout: {error}")
+    if not code:
+        raise HTTPException(status_code=400, detail="Geen code ontvangen")
+    return exact_callback_receive(ExactCallbackReceiveRequest(code=code, state=state))

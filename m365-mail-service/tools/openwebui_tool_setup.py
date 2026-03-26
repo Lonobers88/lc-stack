@@ -67,43 +67,45 @@ class Tools:
 
         return status
 
-    def get_exact_setup_url(self, client_id: str) -> Dict[str, Any]:
+    def get_exact_setup_url(self, client_id: str, client_secret: str, division: int) -> Dict[str, Any]:
         """
-        Genereer de Exact Online autorisatie-URL voor de beheerder.
+        Start de Exact Online koppeling. Sla de config op en geef de OAuth URL terug.
 
-        Gebruik deze functie nadat de beheerder aangeeft dat ze Exact Online willen koppelen
-        en hun Client ID hebben opgegeven.
+        Gebruik wanneer de beheerder Exact Online wil koppelen en aangeeft dat hij de
+        Client ID, Client Secret en het divisienummer heeft.
 
         Stap 1 van de Exact koppeling:
-        - Beheerder maakt app aan op apps.exactonline.com
-        - Beheerder geeft Client ID op
-        - Deze functie geeft de URL terug om te openen in de browser
-        - Na inloggen bij Exact geeft de browser een 'pagina niet gevonden' — dat is normaal
-        - De beheerder kopieert de code uit de URL-balk
+        - Roep deze functie aan met client_id, client_secret en division
+        - Geef de teruggegeven auth_url aan de beheerder om in de browser te openen
+        - Na inloggen bij Exact wordt de koppeling automatisch voltooid via callback.localcompute.nl
+        - De beheerder ziet een groene bevestigingspagina
 
         :param client_id: De Client ID van de Exact Online app (van apps.exactonline.com).
-        :return: De URL om te openen in de browser, met instructies.
+        :param client_secret: De Client Secret van de Exact Online app.
+        :param division: Het Exact Online divisienummer (staat in de URL als je ingelogd bent).
+        :return: De OAuth URL om te openen in de browser.
         """
-        import urllib.parse
-        params = urllib.parse.urlencode({
-            "client_id": client_id,
-            "redirect_uri": "https://localhost/callback",
-            "response_type": "code",
-            "force_login": "0",
-        })
-        auth_url = f"https://start.exactonline.nl/api/oauth2/auth?{params}"
+        try:
+            resp = requests.post(self._url("/exact/setup/start"), json={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "division": division,
+            }, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            return {
+                "stap": "1/1 — Open de URL in uw browser",
+                "url": data.get("auth_url"),
+                "instructie": (
+                    f"**Open deze URL in uw browser:**\n{data.get('auth_url')}\n\n"
+                    "Log in met uw Exact Online admin-account en geef toestemming. "
+                    "De koppeling wordt **automatisch** voltooid — u ziet een groene bevestigingspagina. "
+                    "Kom daarna terug en typ \'klaar\' om de status te checken."
+                )
+            }
+        except Exception as e:
+            return {"status": "fout", "bericht": str(e)}
 
-        return {
-            "stap": "1/2 — Open de URL in uw browser",
-            "url": auth_url,
-            "instructie": (
-                f"**Open deze URL in uw browser:**\n{auth_url}\n\n"
-                "Log in met uw Exact Online admin-account en geef toestemming. "
-                "Daarna probeert de browser 'https://localhost/callback?code=XXXX' te laden — "
-                "u ziet een foutpagina, dat is normaal. "
-                "**Kopieer de volledige URL uit de adresbalk** en plak die hier terug."
-            )
-        }
 
     def complete_exact_setup(
         self,
