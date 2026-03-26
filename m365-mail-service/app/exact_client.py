@@ -12,6 +12,7 @@ De admin koppelt eenmalig via de tool; daarna werkt het automatisch.
 """
 
 import json
+import re
 import os
 import time
 import urllib.request
@@ -83,8 +84,14 @@ def _refresh_access_token(store: ExactTokenStore, config: Dict) -> str:
     }).encode()
 
     req = urllib.request.Request(EXACT_TOKEN_URL, data=data, method="POST")
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read())
+    except Exception as e:
+        raise ValueError(f"Exact Online refresh token verlopen of ongeldig. Koppeling opnieuw vereist. Fout: {e}")
+
+    if not isinstance(result, dict) or "access_token" not in result:
+        raise ValueError(f"Exact Online onverwachte response bij token refresh: {str(result)[:200]}")
 
     store.save(
         client_id=config["client_id"],
@@ -116,7 +123,7 @@ def _exact_get(token: str, division: int, endpoint: str, params: Optional[Dict] 
     """Voer een GET request uit op de Exact Online API."""
     url = f"{EXACT_API_BASE}/{division}/{endpoint}"
     if params:
-        url += "?" + urllib.parse.urlencode(params)
+        url += "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
 
     req = urllib.request.Request(
         url,
@@ -173,12 +180,14 @@ def get_open_invoices(db_path: str, max_results: int = 10) -> List[Dict]:
         "$orderby": "InvoiceDate desc",
     })
 
-    invoices = data.get("d", {}).get("results", [])
+    if not isinstance(data, dict):
+        raise ValueError(f"Exact Online API onverwachte response: {str(data)[:200]}")
+    invoices = (lambda d: d if isinstance(d, list) else d.get("results", []))(data.get("d", []))
     result = []
     for inv in invoices:
         result.append({
-            "nummer": inv.get("InvoiceNumber"),
-            "datum": str(inv.get("InvoiceDate", ""))[:10],
+            "nummer": inv.get("InvoiceNumber") or inv.get("EntryNumber") or inv.get("YourRef"),
+            "datum": (lambda d: str(__import__("datetime").datetime.fromtimestamp(int(re.search(r"\d+", d).group())//1000).date()) if d and "/Date(" in str(d) else str(d)[:10])(inv.get("InvoiceDate", "")),
             "bedrag": inv.get("AmountDC"),
             "omschrijving": inv.get("Description", ""),
             "klant": inv.get("OrderedBy", ""),
@@ -197,7 +206,9 @@ def get_open_receivables(db_path: str, max_results: int = 10) -> List[Dict]:
         "$orderby": "DueDate asc",
     })
 
-    items = data.get("d", {}).get("results", [])
+    if not isinstance(data, dict):
+        raise ValueError(f"Exact Online API onverwachte response: {str(data)[:200]}")
+    items = (lambda d: d if isinstance(d, list) else d.get("results", []))(data.get("d", []))
     result = []
     for item in items:
         result.append({
@@ -220,7 +231,7 @@ def get_recent_transactions(db_path: str, max_results: int = 10) -> List[Dict]:
         "$orderby": "Date desc",
     })
 
-    items = data.get("d", {}).get("results", [])
+    items = (lambda d: d if isinstance(d, list) else d.get("results", []))(data.get("d", []))
     result = []
     for item in items:
         result.append({
