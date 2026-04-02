@@ -17,6 +17,7 @@ import os
 import time
 import urllib.request
 import urllib.parse
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 
@@ -169,13 +170,41 @@ def connect_exact(client_id: str, client_secret: str, authorization_code: str,
     return {"status": "connected", "division": division}
 
 
+def _format_exact_date(value: Any) -> str:
+    if value is None:
+        return ""
+    value = str(value)
+    if "/Date(" in value:
+        match = re.search(r"\d+", value)
+        if match:
+            return str(datetime.fromtimestamp(int(match.group()) // 1000).date())
+    return value[:10]
+
+
+def _lookup_account_names(token: str, division: str, guids: list) -> dict:
+    """Directe lookup van account namen via GUIDs. Retourneert {guid: naam} dict."""
+    if not guids:
+        return {}
+    result = {}
+    for guid in guids[:15]:  # max 15 lookups
+        try:
+            data = _exact_get(token, division, f"crm/Accounts(guid'{guid}')", params={
+                "$select": "ID,Name",
+            })
+            d = data.get("d", {})
+            name = d.get("Name", "")
+            if name:
+                result[guid.lower()] = name
+        except Exception:
+            continue
+    return result
+
+
 def get_open_invoices(db_path: str, max_results: int = 10) -> List[Dict]:
     """Haal openstaande verkoopfacturen op."""
     token, division = _get_access_token(db_path)
 
     data = _exact_get(token, division, "salesinvoice/SalesInvoices", params={
-        "$filter": "Status eq 20",  # 20 = open
-        "$select": "InvoiceNumber,InvoiceDate,AmountDC,Description,OrderedBy,YourRef",
         "$top": max_results,
         "$orderby": "InvoiceDate desc",
     })
@@ -183,14 +212,31 @@ def get_open_invoices(db_path: str, max_results: int = 10) -> List[Dict]:
     if not isinstance(data, dict):
         raise ValueError(f"Exact Online API onverwachte response: {str(data)[:200]}")
     invoices = (lambda d: d if isinstance(d, list) else d.get("results", []))(data.get("d", []))
+
+    # Verzamel GUIDs voor facturen zonder klantnaam
+    guid_set = set()
+    for inv in invoices:
+        name = inv.get("OrderedByName") or inv.get("InvoiceToName") or inv.get("DeliverToName")
+        if not name:
+            guid = inv.get("OrderedBy") or inv.get("InvoiceTo") or inv.get("DeliverTo")
+            if guid and len(guid) == 36:  # is een GUID
+                guid_set.add(guid.lower())
+
+    # Batch-lookup voor ontbrekende namen
+    account_map = _lookup_account_names(token, division, list(guid_set)) if guid_set else {}
+
     result = []
     for inv in invoices:
+        name = inv.get("OrderedByName") or inv.get("InvoiceToName") or inv.get("DeliverToName")
+        if not name:
+            guid = (inv.get("OrderedBy") or inv.get("InvoiceTo") or inv.get("DeliverTo") or "").lower()
+            name = account_map.get(guid, guid)  # fallback naar guid als naam onbekend
         result.append({
             "nummer": inv.get("InvoiceNumber") or inv.get("EntryNumber") or inv.get("YourRef"),
-            "datum": (lambda d: str(__import__("datetime").datetime.fromtimestamp(int(re.search(r"\d+", d).group())//1000).date()) if d and "/Date(" in str(d) else str(d)[:10])(inv.get("InvoiceDate", "")),
+            "datum": _format_exact_date(inv.get("InvoiceDate", "")),
             "bedrag": inv.get("AmountDC"),
             "omschrijving": inv.get("Description", ""),
-            "klant": inv.get("OrderedBy", ""),
+            "klant": name,
             "referentie": inv.get("YourRef", ""),
         })
     return result
@@ -200,8 +246,7 @@ def get_open_receivables(db_path: str, max_results: int = 10) -> List[Dict]:
     """Haal openstaande debiteuren op."""
     token, division = _get_access_token(db_path)
 
-    data = _exact_get(token, division, "financial/ReceivablesList", params={
-        "$select": "AccountName,AmountDC,Description,DueDate,InvoiceNumber",
+    data = _exact_get(token, division, "read/financial/ReceivablesList", params={
         "$top": max_results,
         "$orderby": "DueDate asc",
     })
@@ -213,10 +258,10 @@ def get_open_receivables(db_path: str, max_results: int = 10) -> List[Dict]:
     for item in items:
         result.append({
             "klant": item.get("AccountName", ""),
-            "bedrag": item.get("AmountDC"),
+            "bedrag": item.get("Amount"),
             "omschrijving": item.get("Description", ""),
-            "vervaldatum": str(item.get("DueDate", ""))[:10],
-            "factuurnummer": item.get("InvoiceNumber", ""),
+            "vervaldatum": _format_exact_date(item.get("DueDate", "")),
+            "factuurnummer": item.get("InvoiceNumber") or item.get("HID", ""),
         })
     return result
 
@@ -225,7 +270,7 @@ def get_recent_transactions(db_path: str, max_results: int = 10) -> List[Dict]:
     """Haal recente boekingen op."""
     token, division = _get_access_token(db_path)
 
-    data = _exact_get(token, division, "financial/TransactionLines", params={
+    data = _exact_get(token, division, "financialtransaction/TransactionLines", params={
         "$select": "Date,Description,AmountDC,GLAccountDescription",
         "$top": max_results,
         "$orderby": "Date desc",
@@ -235,7 +280,7 @@ def get_recent_transactions(db_path: str, max_results: int = 10) -> List[Dict]:
     result = []
     for item in items:
         result.append({
-            "datum": str(item.get("Date", ""))[:10],
+            "datum": _format_exact_date(item.get("Date", "")),
             "omschrijving": item.get("Description", ""),
             "bedrag": item.get("AmountDC"),
             "rekening": item.get("GLAccountDescription", ""),
