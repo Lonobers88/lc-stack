@@ -721,3 +721,116 @@ def exact_callback_get(
     if not code:
         raise HTTPException(status_code=400, detail="Geen code ontvangen")
     return exact_callback_receive(ExactCallbackReceiveRequest(code=code, state=state))
+
+
+# ── Google OAuth endpoints ─────────────────────────────────────────────────────
+
+from . import google_oauth_client
+
+class GoogleOAuthSetupRequest(BaseModel):
+    client_id: str
+    client_secret: str
+
+
+class GoogleOAuthCallbackRequest(BaseModel):
+    code: str
+    state: Optional[str] = None
+
+
+@app.post("/google/oauth/setup")
+def google_oauth_setup(payload: GoogleOAuthSetupRequest) -> Dict[str, Any]:
+    """
+    Sla Google OAuth credentials op en geef de login URL terug.
+    Stap 1 van Google koppeling.
+    """
+    import secrets
+    state = secrets.token_urlsafe(16)
+
+    google_oauth_client.save_google_oauth_config(
+        settings.database_path,
+        payload.client_id,
+        payload.client_secret,
+    )
+
+    auth_url = google_oauth_client.get_auth_url(payload.client_id, state)
+
+    # Sla state op voor CSRF verificatie
+    db = sqlite3.connect(settings.database_path)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS google_oauth_states (
+            state TEXT PRIMARY KEY,
+            created_at INTEGER DEFAULT (strftime('%s','now'))
+        )
+    """)
+    db.execute("INSERT OR REPLACE INTO google_oauth_states (state) VALUES (?)", (state,))
+    db.commit()
+    db.close()
+
+    return {
+        "status": "ready",
+        "auth_url": auth_url,
+        "instructie": (
+            f"Open deze URL in je browser om in te loggen met Google:\n{auth_url}\n\n"
+            "Na inloggen word je doorgestuurd naar callback.localcompute.nl/google. "
+            "Kopieer die volledige URL en stuur hem naar /google/oauth/callback."
+        )
+    }
+
+
+@app.get("/google/oauth/callback")
+def google_oauth_callback_get(
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+) -> Any:
+    """OAuth GET callback — directe browser redirect vanuit Google."""
+    if error:
+        raise HTTPException(status_code=400, detail=f"Google OAuth fout: {error}")
+    if not code:
+        raise HTTPException(status_code=400, detail="Geen code ontvangen van Google")
+    return google_oauth_callback_receive(GoogleOAuthCallbackRequest(code=code, state=state))
+
+
+@app.post("/google/oauth/callback")
+def google_oauth_callback_receive(payload: GoogleOAuthCallbackRequest) -> Dict[str, Any]:
+    """Voltooi Google OAuth — wissel code in voor tokens en sla mailbox op."""
+    import time
+
+    config = google_oauth_client.get_google_oauth_config(settings.database_path)
+    if not config:
+        raise HTTPException(status_code=400, detail="Google OAuth niet geconfigureerd. Start via /google/oauth/setup.")
+
+    try:
+        tokens = google_oauth_client.exchange_code(
+            config["client_id"], config["client_secret"], payload.code
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Token exchange mislukt: {str(e)}")
+
+    try:
+        userinfo = google_oauth_client.get_userinfo(tokens["access_token"])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Gebruikersinfo ophalen mislukt: {str(e)}")
+
+    email = userinfo.get("email", "")
+    display_name = userinfo.get("name", email)
+
+    # Voeg expires_at toe
+    tokens["expires_at"] = time.time() + tokens.get("expires_in", 3600)
+
+    google_oauth_client.save_google_tokens(
+        settings.database_path, email, display_name, tokens
+    )
+
+    return {
+        "status": "connected",
+        "email": email,
+        "display_name": display_name,
+        "message": f"Google account van {display_name} ({email}) succesvol gekoppeld!"
+    }
+
+
+@app.post("/google/oauth/complete")
+def google_oauth_complete(payload: GoogleOAuthCallbackRequest) -> Dict[str, Any]:
+    """Alias voor /google/oauth/callback — voor gebruik vanuit Setup Assistent."""
+    return google_oauth_callback_receive(payload)

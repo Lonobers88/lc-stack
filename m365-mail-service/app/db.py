@@ -232,3 +232,34 @@ def list_mailboxes() -> List[Dict[str, Any]]:
     rows = [dict(row) for row in cur.fetchall()]
     conn.close()
     return rows
+
+def upsert_google_oauth_mailbox(
+    db_path: str,
+    email: str,
+    display_name: Optional[str],
+    tokens: str,
+) -> int:
+    """Sla een Google OAuth mailbox op met OAuth tokens (token_json kolom)."""
+    import sqlite3, datetime
+    c = sqlite3.connect(db_path)
+    c.row_factory = sqlite3.Row
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    cur = c.cursor()
+    cur.execute("SELECT id FROM mailboxes WHERE email = ?", (email,))
+    row = cur.fetchone()
+    if row:
+        mailbox_id = row["id"]
+        cur.execute(
+            "UPDATE mailboxes SET display_name=?, provider='google', token_json=?, updated_at=? WHERE id=?",
+            (display_name, tokens, now, mailbox_id),
+        )
+    else:
+        cur.execute(
+            "INSERT INTO mailboxes (email, display_name, tenant_id, token_json, provider, imap_config, created_at, updated_at) VALUES (?, ?, NULL, ?, 'google', NULL, ?, ?)",
+            (email, display_name, tokens, now, now),
+        )
+        mailbox_id = cur.lastrowid
+    c.commit()
+    c.close()
+    return int(mailbox_id)
+
