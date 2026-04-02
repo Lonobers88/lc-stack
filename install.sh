@@ -111,7 +111,7 @@ echo "  Embedding model downloaden (~1.5GB)..."
 docker exec ollama ollama pull bge-m3:latest
 
 # ---- 7. Volledige stack starten ----
-echo "[7/8] Volledige stack starten..."
+echo "[7/9] Volledige stack starten..."
 docker compose up -d
 
 sleep 10
@@ -119,7 +119,34 @@ echo ""
 echo "Container status:"
 docker compose ps --format "table {{.Name}}\t{{.Status}}"
 
-# ---- 8. Klaar ----
+
+# ---- 8. OWUI configuratie laden ----
+echo "[8/9] Open WebUI configuratie laden (modellen, tools, filters)..."
+sleep 5
+
+# Wacht tot OWUI beschikbaar is
+echo "  Wachten tot Open WebUI klaar is..."
+for i in $(seq 1 30); do
+    if curl -s http://localhost:3000/health > /dev/null 2>&1; then
+        break
+    fi
+    sleep 3
+done
+
+echo ""
+echo "  Open WebUI is bereikbaar."
+echo ""
+echo "  STAP: Maak eerst een admin account aan via http://$LOCAL_IP:3000"
+echo "  Daarna run je eenmalig:"
+echo ""
+echo "    docker cp $STACK_DIR/install/seed_owui.py openwebui:/tmp/seed_owui.py"
+echo "    docker cp $STACK_DIR/install/owui_seed.json openwebui:/tmp/owui_seed.json"
+echo "    docker exec openwebui python3 /tmp/seed_owui.py"
+echo ""
+echo "  Dit laadt alle workspace modellen, tools en filters automatisch."
+echo ""
+
+# ---- 9. Klaar ----
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 echo ""
 echo "=============================================="

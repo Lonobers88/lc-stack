@@ -22,3 +22,11 @@ searxng/uwsgi.ini
 # OS
 .DS_Store
 Thumbs.db
+
+# Tijdelijke patch scripts
+patch_env_*.py
+tmp_*.py
+live_*.py
+
+# Logs
+logs/*.log
