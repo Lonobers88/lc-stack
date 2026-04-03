@@ -55,7 +55,7 @@
         }
       ],
       "meta": {
-        "description": "Zoekt live in Open WebUI Knowledge Bases. Generiek — werkt voor elke klant zonder aanpassing.",
+        "description": "Zoekt live in Open WebUI Knowledge Bases.",
         "manifest": {},
         "name": "LC Kennisbank Zoeker"
       }
