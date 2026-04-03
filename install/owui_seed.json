@@ -523,47 +523,6 @@
   ],
   "models": [
     {
-      "id": "lc-hr-assistent",
-      "name": "LC HR Assistent",
-      "base_model_id": "qwen3.5:35b",
-      "params": {
-        "system": "Je bent de HR-assistent van Redux Gaming B.V. Je helpt medewerkers met vragen over hun arbeidsvoorwaarden, CAO ETD en personeelsbeleid.\n\nKERNREGELS:\n- Antwoord ALTIJD in het Nederlands\n- Baseer antwoorden op de meegeleverde HR-documenten\n- Citeer getallen LETTERLIJK uit de bron met [bronverwijzing]\n- Wees vriendelijk en professioneel\n- Bij vragen over verlof/vakantie: controleer de documenten voor het exacte aantal uren\n\nJe behandelt GEEN productvragen.",
-        "temperature": 0.1
-      },
-      "meta": {
-        "profile_image_url": "/static/favicon.png",
-        "description": "HR assistent voor Redux Gaming medewerkers. Beantwoordt vragen over CAO, verlof en arbeidsvoorwaarden.",
-        "capabilities": {
-          "vision": false,
-          "usage": false,
-          "citations": true
-        },
-        "knowledge": [
-          {
-            "type": "collection",
-            "id": "c8e64e2e-cff0-4f29-bc5f-d04fe88c7fb7",
-            "name": "Personeel"
-          }
-        ],
-        "toolIds": [],
-        "tags": [
-          {
-            "name": "HR"
-          }
-        ],
-        "access_control": {
-          "read": {
-            "group_ids": [],
-            "user_ids": []
-          },
-          "write": {
-            "group_ids": [],
-            "user_ids": []
-          }
-        }
-      }
-    },
-    {
       "id": "lc-medewerker",
       "name": "AI Assistent",
       "base_model_id": "qwen3.5:35b",
@@ -614,43 +573,6 @@
         "knowledgeIds": [
           "c8e64e2e-cff0-4f29-bc5f-d04fe88c7fb7",
           "65f4394b-9871-4854-b0ca-ec17b870eb99"
-        ]
-      }
-    },
-    {
-      "id": "lc-finance",
-      "name": "LC Finance",
-      "base_model_id": "qwen3.5:35b",
-      "params": {
-        "system": "Je bent de financiële AI-assistent van Redux Gaming. Je hebt toegang tot Exact Online en Moneybird data.\n\nJe taken:\n- Openstaande facturen ophalen en samenvatten\n- Debiteurenoverzichten geven\n- Recente boekingen tonen\n- Moneybird facturen en offertes raadplegen\n\nRegels:\n- Wees bondig en zakelijk\n- Noem altijd factuurnummers en bedragen concreet\n- Geef een samenvatting + de ruwe data\n- Verwerk nooit betalingen of wijzig nooit data — je hebt alleen leesrechten\n- Als Exact niet gekoppeld is, leg uit dat de beheerder dit eenmalig moet instellen"
-      },
-      "meta": {
-        "profile_image_url": "/static/favicon.png",
-        "description": "Financieel assistent voor Exact Online en Moneybird. Alleen toegankelijk voor financieel medewerkers.",
-        "capabilities": {
-          "vision": false,
-          "usage": true,
-          "citations": true
-        },
-        "toolIds": [
-          "localcompute_connectors"
-        ],
-        "suggestion_prompts": [
-          {
-            "content": "Welke facturen staan er nog open in Exact?"
-          },
-          {
-            "content": "Geef me een overzicht van de openstaande debiteuren"
-          },
-          {
-            "content": "Wat zijn de laatste boekingen?"
-          },
-          {
-            "content": "Welke Moneybird facturen zijn nog onbetaald?"
-          },
-          {
-            "content": "Toon de meest recente offertes"
-          }
         ]
       }
     },
