@@ -98,8 +98,8 @@ def seed_models(cur, models, user_id, now):
             skipped += 1
             continue
         cur.execute(
-            """INSERT INTO model (id, user_id, base_model_id, name, params, meta, access_control, is_active, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO model (id, user_id, base_model_id, name, params, meta, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 model["id"],
                 user_id,
@@ -107,8 +107,6 @@ def seed_models(cur, models, user_id, now):
                 model["name"],
                 json.dumps(model.get("params", {}), ensure_ascii=False),
                 json.dumps(model.get("meta", {}), ensure_ascii=False),
-                None,
-                1,
                 now,
                 now,
             ),
