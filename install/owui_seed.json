@@ -489,7 +489,10 @@
           "type": "filter",
           "required_open_webui_version": "0.3.0"
         },
-        "name": "LC RAG Grounding"
+        "name": "LC RAG Grounding",
+        "content": "from pydantic import BaseModel, Field\nfrom typing import Optional\nimport json\n\nclass Filter:\n    class Valves(BaseModel):\n        debug: bool = Field(default=False, description=\"Enable debug logging\")\n\n    def __init__(self):\n        self.valves = self.Valves()\n        self.embedding_model = \"bge-m3:latest\"\n\n    def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:\n        \"\"\"Process incoming message and inject knowledge context\"\"\"\n        \n        # Get message content\n        messages = body.get(\"messages\", [])\n        if not messages:\n            return body\n        \n        last_message = messages[-1]\n        if last_message.get(\"role\") != \"user\":\n            return body\n        \n        query = last_message.get(\"content\", \"\")\n        \n        # Check if knowledge is configured for this model\n        # Note: In Open WebUI, knowledge is retrieved automatically when\n        # files are attached or knowledge collections are linked to the model\n        # This filter prepares the prompt formatting for optimal Gemma4 usage\n        \n        # Format knowledge context for Gemma4 (clean, no XML tags)\n        system_instruction = \"\"\"Gebruik de onderstaande documentatie om de vraag te beantwoorden. Baseer je antwoord ENKEL op de verstrekte informatie.\"\"\"\n        \n        # Modify the last message to include knowledge instructions\n        # The actual RAG retrieval happens in OWUI's internal pipeline\n        modified_content = f\"{query}\\n\\n[INSTRUCTIE: Gebruik relevante documentatie uit de kennisbank voor dit antwoord.]\"\n        \n        last_message[\"content\"] = modified_content\n        \n        if self.valves.debug:\n            print(f\"[lc_rag_grounding] Processed query: {query[:100]}...\")\n        \n        return body\n\n    def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:\n        \"\"\"Process outgoing response\"\"\"\n        return body\n",
+        "type": "filter",
+        "engine": "python"
       }
     },
     {
