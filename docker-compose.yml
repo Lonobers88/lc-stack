@@ -46,6 +46,8 @@ services:
       - QDRANT_TIMEOUT=30
       - WEBUI_NAME=LocalCompute AI
       - WEBSOCKET_EVENT_CALLER_TIMEOUT=180
+      - ENABLE_API_KEY=true
+      - ENABLE_PERSISTENT_CONFIG=false
       - AIOHTTP_CLIENT_TIMEOUT=120
     depends_on:
       - ollama
